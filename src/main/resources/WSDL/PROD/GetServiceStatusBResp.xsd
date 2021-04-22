@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBResp" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:efx="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBResp">
+
+	<xs:element name="getServiceStatusResponse">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element maxOccurs="1" minOccurs="1" name="overallStatus" type="xs:string"/>
+				<xs:element maxOccurs="1" minOccurs="1" name="detail" type="efx:detail_TYPE"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="detail_TYPE">
+		<xs:sequence>
+			<xs:element maxOccurs="unbounded" minOccurs="0" name="component" type="efx:component_TYPE"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="component_TYPE">
+		<xs:sequence>
+			<xs:element name="name" type="xs:string"/>
+			<xs:element name="description" type="xs:string"/>
+			<xs:element name="status" type="xs:string"/>
+			<xs:element name="test" type="efx:test_TYPE"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="test_TYPE">
+		<xs:sequence>
+			<xs:element name="name" type="xs:string"/>
+			<xs:element name="description" type="xs:string"/>
+			<xs:element name="executionDate" type="xs:string"/>
+			<xs:element name="element" type="xs:string"/>
+			<xs:element name="errorCode" type="xs:string"/>
+			<xs:element name="errorDescription" type="xs:string"/>
+			<xs:element name="errorStackTrace" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

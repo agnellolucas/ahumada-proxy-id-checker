@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBReq" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:efx="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBReq">
+
+	<xs:element name="GeteIDCompareValidatorRequest">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element maxOccurs="1" minOccurs="1" name="usuario" type="xs:string"/>
+				<xs:element maxOccurs="1" minOccurs="1" name="clave" type="xs:string"/>
+				<xs:element maxOccurs="1" minOccurs="1" name="rut" type="xs:string"/>
+				<xs:element maxOccurs="1" minOccurs="1" name="serie" type="xs:string"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

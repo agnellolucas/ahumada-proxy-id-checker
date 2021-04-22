@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:camel="http://camel.apache.org/schema/blueprint"
+    xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0"
+    xmlns:cxf="http://camel.apache.org/schema/blueprint/cxf"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="     http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd     http://camel.apache.org/schema/blueprint https://camel.apache.org/schema/blueprint/camel-blueprint.xsd                  http://camel.apache.org/schema/blueprint/cxf http://camel.apache.org/schema/cxf/camel-cxf-blueprint.xsd                    http://cxf.apache.org/blueprint/core http://cxf.apache.org/schemas/blueprint/core.xsd">
+    <!-- Data Source -->
+    <reference availability="mandatory"
+        filter="(osgi.jndi.service.name=ventadomiciliods)"
+        id="ventadomicilioDataSource" interface="javax.sql.DataSource"/>
+    <!-- Beans -->
+    <bean class="com.ahumada.fuse.processor.ProcessRequest" id="processRequest"/>
+    <bean class="com.ahumada.fuse.db.ConnectionManager" id="connectionManager">
+        <property name="datasource" ref="ventadomicilioDataSource"/>
+    </bean>
+    <bean class="com.ahumada.fuse.db.DbHelper" id="dbHelper"/>
+    <!--CXF Rest Services-->
+    <cxf:rsServer address="/id-checker" id="idCheckerServer" loggingFeatureEnabled="true">
+        <cxf:serviceBeans>
+            <bean class="com.ahumada.fuse.resources.RestResources" id="restResources"/>
+        </cxf:serviceBeans>
+        <cxf:providers>
+            <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
+            <bean class="org.apache.cxf.jaxrs.model.wadl.WadlGenerator"/>
+        </cxf:providers>
+    </cxf:rsServer>
+    <!--  Camel routes -->
+    <camelContext id="id-checker-api" xmlns="http://camel.apache.org/schema/blueprint">
+        <route id="restApiRoute">
+            <from id="_restResources" uri="cxfrs:bean:idCheckerServer"/>
+            <camel:unmarshal id="_unmarshal1">
+                <camel:json library="Jackson" unmarshalTypeName="com.ahumada.fuse.resources.model.RestRequest"/>
+            </camel:unmarshal>
+            <process id="_processRequestAction" ref="processRequest"/>
+        </route>
+    </camelContext>
+</blueprint>

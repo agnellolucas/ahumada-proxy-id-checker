@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBReq" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:efx="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBReq">
+
+	<xs:element name="getServiceStatusRequest">
+		<xs:complexType>
+			<xs:sequence>
+
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

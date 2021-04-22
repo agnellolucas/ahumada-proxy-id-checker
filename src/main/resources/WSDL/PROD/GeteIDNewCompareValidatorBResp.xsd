@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBResp" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:efx="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBResp">
+
+	<xs:element name="GeteIDNewCompareValidatorResponse">
+		<xs:complexType>
+			<xs:sequence>				
+				<xs:element name="existe" nillable="false" type="xs:string"/>
+				<xs:element name="idTransaction" nillable="false" type="xs:string"/>
+				<xs:element name="statusDoctoIdentidad" nillable="false" type="efx:StatusDoctoIdentidad_TYPE"/>
+				<xs:element name="personalInformation" nillable="true" type="efx:PersonalInformation_TYPE"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	
+
+	<xs:complexType name="StatusDoctoIdentidad_TYPE">
+		<xs:sequence>
+			<xs:element name="tipo" nillable="true" type="xs:string"/>
+			<xs:element name="numero" nillable="true" type="xs:string"/>
+			<xs:element name="serie" nillable="true" type="xs:string"/>
+			<xs:element name="estado" nillable="true" type="xs:string"/>
+			<xs:element name="motivo" nillable="true" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>	
+	
+	<xs:complexType name="PersonalInformation_TYPE">
+		<xs:sequence>
+
+			<xs:element name="nombres" nillable="true" type="xs:string"/>
+			<xs:element name="apellidoPaterno" nillable="true" type="xs:string"/>
+			<xs:element name="apellidoMaterno" nillable="true" type="xs:string"/>
+			<xs:element name="nacionalidad" nillable="true" type="xs:string"/>
+			<xs:element name="sexo" nillable="true" type="xs:string"/>
+			<xs:element name="estadoCivil" nillable="true" type="xs:string"/>
+			<xs:element name="fechaNacimiento" nillable="true" type="xs:string"/>
+			<xs:element name="fechaDefuncion" nillable="true" type="xs:string"/>
+			<xs:element name="fechaMatrimonio" nillable="true" type="xs:string"/>
+			<xs:element name="menor" nillable="true" type="xs:string"/>
+			<xs:element name="menorGlosa" nillable="true" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

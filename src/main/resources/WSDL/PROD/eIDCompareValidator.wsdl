@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" name="eIDCompareValidator" targetNamespace="http://dws.equifax.cl/osb-efx/Equifax/eIDCompareValidator" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://dws.equifax.cl/osb-efx/Equifax/eIDCompareValidator" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsd1="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBReq" xmlns:xsd2="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBResp" xmlns:xsd3="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBReq" xmlns:xsd4="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBResp" xmlns:xsd5="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBReq" xmlns:xsd6="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBResp">
+  <wsdl:types>
+    <xsd:schema targetNamespace="http://www.example.org/eIDCompareValidator/">
+      <xsd:element name="GeteIDCompareValidator">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="in" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GeteIDCompareValidatorResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="out" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetServiceStatus">
+      	<xsd:complexType>
+      		<xsd:sequence>
+
+      			<xsd:element name="in" type="xsd:string"/>
+      		</xsd:sequence>
+      	</xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetServiceStatusResponse">
+      	<xsd:complexType>
+      		<xsd:sequence>
+
+      			<xsd:element name="out" type="xsd:string"/>
+      		</xsd:sequence>
+      	</xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GeteIDNewCompareValidatorRequest">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="in" type="xsd:string"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+	<xsd:element name="GeteIDNewCompareValidatorResponse">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:element name="out" type="xsd:string"/>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+    </xsd:schema>
+    <xsd:schema>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBReq" schemaLocation="GeteIDCompareValidatorBReq.xsd">
+    	</xsd:import>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDCompareValidatorBResp" schemaLocation="GeteIDCompareValidatorBResp.xsd">
+    	</xsd:import>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBReq" schemaLocation="GetServiceStatusBReq.xsd">
+    	</xsd:import>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GetServiceStatusBResp" schemaLocation="GetServiceStatusBResp.xsd">
+    	</xsd:import>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBReq" schemaLocation="GeteIDNewCompareValidatorBReq.xsd">
+    	</xsd:import>
+    	<xsd:import namespace="http://cl.equifax.com/schema/eIDCompareValidator/GeteIDNewCompareValidatorBResp" schemaLocation="GeteIDNewCompareValidatorBResp.xsd">
+    	</xsd:import>
+    	</xsd:schema></wsdl:types>
+  <wsdl:message name="GeteIDCompareValidatorRequest">
+    <wsdl:part element="xsd1:GeteIDCompareValidatorRequest" name="parameters"/>
+  </wsdl:message>
+  <wsdl:message name="GeteIDCompareValidatorResponse">
+    <wsdl:part element="xsd2:GeteIDCompareValidatorResponse" name="parameters"/>
+  </wsdl:message>
+  <wsdl:message name="GetServiceStatusRequest">
+  	<wsdl:part name="parameters" element="xsd3:getServiceStatusRequest"/>
+  </wsdl:message>
+  <wsdl:message name="GetServiceStatusResponse">
+  	<wsdl:part name="parameters" element="xsd4:getServiceStatusResponse"/>
+  </wsdl:message>
+  <wsdl:message name="GeteIDNewCompareValidatorRequest">
+  	<wsdl:part name="parameters" element="xsd5:GeteIDNewCompareValidatorRequest"/>
+  </wsdl:message>
+  <wsdl:message name="GeteIDNewCompareValidatorResponse">
+  	<wsdl:part name="parameters" element="xsd6:GeteIDNewCompareValidatorResponse"/>
+  </wsdl:message>
+  <wsdl:portType name="eIDCompareValidator">
+    <wsdl:operation name="GeteIDCompareValidator">
+      <wsdl:input message="tns:GeteIDCompareValidatorRequest"/>
+      <wsdl:output message="tns:GeteIDCompareValidatorResponse"/>
+    </wsdl:operation>
+    <wsdl:operation name="GetServiceStatus">
+    	<wsdl:input message="tns:GetServiceStatusRequest"/>
+    	<wsdl:output message="tns:GetServiceStatusResponse"/>
+    </wsdl:operation>
+    <wsdl:operation name="GeteIDNewCompareValidator">
+    	<wsdl:input message="tns:GeteIDNewCompareValidatorRequest"/>
+    	<wsdl:output message="tns:GeteIDNewCompareValidatorResponse"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="eIDCompareValidatorSOAP" type="tns:eIDCompareValidator">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="GeteIDCompareValidator">
+      <soap:operation soapAction="https://ws.equifax.cl/efc-eid-compare-validator-soap/Equifax/GeteIDCompareValidator"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetServiceStatus">
+      <soap:operation soapAction="https://ws.equifax.cl/efc-eid-compare-validator-soap/Equifax/GetServiceStatus"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GeteIDNewCompareValidator">
+      <soap:operation soapAction="https://ws.equifax.cl/efc-eid-compare-validator-soap/Equifax/GeteIDNewCompareValidator"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="eIDCompareValidator">
+    <wsdl:port binding="tns:eIDCompareValidatorSOAP" name="eIDCompareValidatorSOAP">
+      <soap:address location="https://ws.equifax.cl/efc-eid-compare-validator-soap/Equifax/eIDCompareValidator"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
