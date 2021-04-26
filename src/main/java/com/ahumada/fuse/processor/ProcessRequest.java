@@ -81,9 +81,9 @@ public class ProcessRequest implements Processor {
 		RestRequest request = null;
 		try {
 			request = exchange.getIn().getBody(RestRequest.class);
-			if(request == null) throw new Exception("Message body couldn't be validate");
+			if(request == null) throw new Exception("No se pudo recuperar el cuerpo del mensaje");
 		} catch (Exception e) {
-			throw new Exception(String.format("Error when parsing JSON :: %s", e.getMessage()));
+			throw new Exception(String.format("Error al analizar JSON :: %s", e.getMessage()));
 		}
 
 		// Basic data validation
@@ -92,17 +92,17 @@ public class ProcessRequest implements Processor {
 		// RUT
 		if(FunctionUtils.stringIsNullOrEmpty(request.getRut())) {
 			errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
-			errorMessage.append("Missing RUT param on request body");
+			errorMessage.append("Falta el parámetro RUT en el cuerpo del mensaje");
 		} else if(request.getRut().trim().length() > RUT_LENGTH) {
 			errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
-			errorMessage.append(String.format("RUT length must be less than %d", RUT_LENGTH));
+			errorMessage.append(String.format("RUT debe contener menos de %d dígitos ", RUT_LENGTH));
 		} else {
 			
 			//Remove special characters 
 			request.setRut(request.getRut().trim().replaceAll("[^a-zA-Z0-9]", ""));
 			
 			String rutCore = request.getRut().substring(0, request.getRut().length()-1); 
-			String rutDv = request.getRut().substring(request.getRut().length()-1);
+//			String rutDv = request.getRut().substring(request.getRut().length()-1);
 			
 			//Check if rut core is numeric
 			if(!StringUtils.isNumeric(rutCore)) {
@@ -118,7 +118,7 @@ public class ProcessRequest implements Processor {
 		// SERIE	
 		if(FunctionUtils.stringIsNullOrEmpty(request.getSerie())) {
 			errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
-			errorMessage.append("Missing SERIE param on request body");
+			errorMessage.append("Falta el parámetro SERIE en el cuerpo del mensaje");
 			//TODO depending on the response from Ahumada, we may need to check Series size and set default value if it is null 
 		} else {
 			//Remove special characters 

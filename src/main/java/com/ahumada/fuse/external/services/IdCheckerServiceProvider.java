@@ -47,14 +47,16 @@ public class IdCheckerServiceProvider {
 		try {
 			
 			
-			wsdlUrl = new URL(getWsdlURLServiceProvider());
-			//QName serviceEndpoint = new QName("https://qws.equifax.cl/efc-eid-compare-validator-soap/Equifax/eIDCompareValidator", "eIDCompareValidator");
-			EIDCompareValidator_Service service = new EIDCompareValidator_Service(wsdlUrl);
+//			wsdlUrl = new URL(getWsdlURLServiceProvider());
+//			QName serviceEndpoint = new QName("https://qws.equifax.cl/efc-eid-compare-validator-soap/Equifax/eIDCompareValidator", "eIDCompareValidator");
+//			EIDCompareValidator_Service service = new EIDCompareValidator_Service(wsdlUrl);
+			EIDCompareValidator_Service service = new EIDCompareValidator_Service();
 			EIDCompareValidator port = service.getEIDCompareValidatorSOAP();
 			
 			Client cxfClient = ClientProxy.getClient(port);
-			cxfClient.getInFaultInterceptors().add(new ChangeSoapFaultCodeInterceptor());
-		    
+//			cxfClient.getInFaultInterceptors().add(new ChangeSoapFaultCodeInterceptor());
+//			cxfClient.getInFaultInterceptors().add(new Soap11FaultInInterceptor());
+
 			GeteIDCompareValidatorRequest requestSOAP = new GeteIDCompareValidatorRequest();
 			requestSOAP.setRut(req.getRut());
 			requestSOAP.setSerie(req.getSerie());
