@@ -1,14 +1,19 @@
 package com.ahumada.fuse.processor;
 
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.apache.camel.BeanInject;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.apache.camel.PropertyInject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import com.ahumada.fuse.db.ConnectionManager;
+import com.ahumada.fuse.db.DbHelper;
+import com.ahumada.fuse.db.model.Fv29ClienteDatos;
 import com.ahumada.fuse.enums.MessageListEnum;
 import com.ahumada.fuse.enums.RestResponseStatus;
 import com.ahumada.fuse.external.services.IdCheckerServiceProvider;
@@ -18,14 +23,20 @@ import com.ahumada.fuse.utils.FunctionUtils;
 
 public class ProcessRequest implements Processor {
 
-	final int RUT_LENGTH = 10;
-	final int RUT_MIN_LENGTH_WITHOUT_DV = 7;
-	final int SERIE_LENGTH = 10;
-	
+	private final int RUT_LENGTH = 10;
+	//	private final int RUT_MIN_LENGTH_WITHOUT_DV = 7;
+	//	private final int SERIE_LENGTH = 10;
+
+	@PropertyInject(value = "daysOfRecordValidity")
+	private String daysOfRecordValidity;
+
 	private Logger logger = Logger.getLogger(getClass());
 
 	@BeanInject
 	ConnectionManager connManager;
+
+	@BeanInject
+	IdCheckerServiceProvider serviceProvider;
 
 	public void process(Exchange exchange) throws Exception {
 
@@ -33,7 +44,7 @@ public class ProcessRequest implements Processor {
 		RestResponse response = null;
 
 		try {
-			
+
 			// Validate Data Source
 			if(connManager == null || !connManager.isConnValid()) {
 				logger.error("Data source property is NULL at ConnectionManager class");
@@ -44,12 +55,55 @@ public class ProcessRequest implements Processor {
 			request = validateRequest(exchange);
 
 			try {
-				response = callIdCheckerProvider(request, connManager);
+
+				boolean callExternalService = true;
+				boolean isDataUpdate = false;
+
+				// Check if RUT information exists in the database
+				Fv29ClienteDatos clienteDatos = getClienteDatos(request.getRut());
+				if(clienteDatos != null) {
+					// Make sure it is a data update because it already exists on the database
+					isDataUpdate = true;
+
+					// Check difference between the fechaConsultaDatos and FechaConsultaDatosValidez in days 
+					if(clienteDatos.getFechaConsultaDatos() != null 
+							&& clienteDatos.getFechaConsultaDatosValidez() != null
+							&& clienteDatos.getCurrentTimestampDatabase() != null) {
+
+						/*
+						 * It will not call the external service again IF:
+						 * 	- a record already exists in the database AND
+						 *  - the current date is before the database record validity 
+						 *  - the "existe" parameter is equal "S" which means the RUT exists
+						 */
+						if(clienteDatos.getCurrentTimestampDatabase().before(clienteDatos.getFechaConsultaDatosValidez())
+								&& !FunctionUtils.stringIsNullOrEmpty(clienteDatos.getExiste()) 
+								&& (clienteDatos.getExiste() != null && clienteDatos.getExiste().trim().equalsIgnoreCase("S"))) {
+
+							callExternalService = false;
+							response = new RestResponse(true);
+							response.setMessage(String.format("RUT %s encontrado en la base de datos ", clienteDatos.getDocNumero()));
+						}
+					}
+				}
+
+				if(callExternalService) response = callIdCheckerProvider(request, isDataUpdate);
 
 				// Just in case a response is returned null or false and without a message, we consider as an unexpected error
 				if(response == null || (!response.isSuccess() && FunctionUtils.stringIsNullOrEmpty(response.getMessage()))) 
-					throw new Exception(String.format(MessageListEnum.GENERIC_EXCEPTION.getDesc(), "Unexpected error, please contact the support team"));
-				
+					throw new Exception(String.format(MessageListEnum.GENERIC_EXCEPTION.getDesc(), "Error inesperado, comuníquese con el equipo de soporte de la aplicación"));
+
+				// Populate validity date
+				if(response != null && response.isSuccess()) {
+					Date validity = DbHelper.getValidityFv29ClienteDatos(request.getRut(), Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
+					if(validity != null) {
+						SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+						response.setVencimiento(formatter.format(validity));
+					} else {
+						response.setVencimiento("1999-12-30");
+					}
+				}
+
 			} catch (Exception e) {
 				// Just log error and re-throw exception
 				logger.error(e.getMessage());
@@ -67,7 +121,7 @@ public class ProcessRequest implements Processor {
 		} catch (Exception e) {
 			response = new RestResponse(e.getMessage(),RestResponseStatus.UNEXPECTED_ERROR.isSuccess());
 		}
-		
+
 		exchange.getOut().setFault(!response.isSuccess());
 		exchange.getOut().setBody(response.toString());
 	}
@@ -88,7 +142,7 @@ public class ProcessRequest implements Processor {
 
 		// Basic data validation
 		StringBuilder errorMessage = null;
-		
+
 		// RUT
 		if(FunctionUtils.stringIsNullOrEmpty(request.getRut())) {
 			errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
@@ -97,19 +151,19 @@ public class ProcessRequest implements Processor {
 			errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
 			errorMessage.append(String.format("RUT debe contener menos de %d dígitos ", RUT_LENGTH));
 		} else {
-			
+
 			//Remove special characters 
 			request.setRut(request.getRut().trim().replaceAll("[^a-zA-Z0-9]", ""));
-			
+
 			String rutCore = request.getRut().substring(0, request.getRut().length()-1); 
-//			String rutDv = request.getRut().substring(request.getRut().length()-1);
-			
+			//String rutDv = request.getRut().substring(request.getRut().length()-1);
+
 			//Check if rut core is numeric
 			if(!StringUtils.isNumeric(rutCore)) {
 				errorMessage = errorMessage == null ? new StringBuilder() : errorMessage;
 				errorMessage.append(String.format("Los primeros dígitos de RUT deben ser numéricos. Ej: 12345678-K :: RUT recebido %s", rutCore));
 			}
-			
+
 			//TODO validate RUT and DV
 			// http://lineadecodigo.com/java/validador-de-rut-en-java/
 			// https://uncodigo.com/herramienta-validador-de-rut-chileno-online/
@@ -124,42 +178,41 @@ public class ProcessRequest implements Processor {
 			//Remove special characters 
 			request.setSerie(request.getSerie().trim().replaceAll("[^a-zA-Z0-9]", " "));
 		}
-		
+
 		// throw exception in case any issue has been found during the validation
 		if(errorMessage != null) throw new Exception(errorMessage.toString());
 
 		return request;
 	}
 
+	/*
+	 * Check if client data exists on database
+	 */
+	private Fv29ClienteDatos getClienteDatos(String rut) {
+		Fv29ClienteDatos clienteDatos = null;
+
+		try {
+			clienteDatos = DbHelper.getBasicFv29ClienteDatos(rut, Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
+		} catch (SQLException e) {
+			logger.error(String.format("Error al consultar los datos del cliente en la base de datos :: RUT %s", rut));
+		}
+
+		return clienteDatos;
+	}
 
 	/*
 	 * Call ID Checker Provider 
 	 */
-	private RestResponse callIdCheckerProvider(RestRequest req, ConnectionManager connManager) {
+	private RestResponse callIdCheckerProvider(RestRequest req, boolean isDataUpdate) {
 
 		RestResponse response;
-		
+
 		try {
-			IdCheckerServiceProvider serviceProvider = new IdCheckerServiceProvider();
-			
-			// Check if the needed properties to call the ID checker were properly loaded
-			if(FunctionUtils.stringIsNullOrEmpty(serviceProvider.getUsuarioServiceProvider())){
-				String err = "El usuario del proveedor de verificación de RUT no se encuentra en el archivo de configuración de la aplicación.";
-				logger.error(err);
-				throw new Exception(err);
-			} else if(FunctionUtils.stringIsNullOrEmpty(serviceProvider.getClaveServiceProvider())) {
-				String err = "La contraseña del proveedor de verificación de RUT no se encuentra en el archivo de configuración de la aplicación.";
-				logger.error(err);
-				throw new Exception(err);
-			} else if(FunctionUtils.stringIsNullOrEmpty(serviceProvider.getWsdlURLServiceProvider())) {
-				String err = "No se encontró la URL del proveedor de verificación de RUT en el archivo de configuración de la aplicación.";
-				logger.error(err);
-				throw new Exception(err);
-			}
-			
+			// Just in case it can't inject the bean
+			if(serviceProvider == null) throw new Exception(" No no pudo iniciar IdCheckerServiceProvider ");
 			// Call ID checker
-			response = serviceProvider.callIdCheckerProvider(req, connManager);
-			
+			response = serviceProvider.isValidServiceProvider() ? serviceProvider.callIdCheckerProvider(req, isDataUpdate, connManager) : null;
+
 		} catch (Exception e) {
 			response = new RestResponse(false);
 			response.setMessage(String.format(
@@ -167,31 +220,15 @@ public class ProcessRequest implements Processor {
 					e.getMessage()));
 		}
 		return response;
-		
-//		String RUT_ERROR1 = "123456780";
-//		String RUT_ERROR2 = "000000000";
-//
-//		try {
-//			//TODO implement call to ID checker provider
-//			//restResponse = equifaxProvider.GeteIDCompareValidator(req, connManager);
-//			
-//			// MOCK response
-//			if(req.getRut().equals(RUT_ERROR1) || req.getRut().equals(RUT_ERROR2)) {
-//				restResponse = new RestResponse(false);
-//				restResponse.setMessage("RUT inválida");
-//			} else {
-//				restResponse = new RestResponse(true);
-//				restResponse.setMessage("RUT válido");
-//			}
-//			
-//		} catch (Exception e) {
-//			restResponse = new RestResponse(false);
-//			restResponse.setMessage(e.getMessage());
-//			logger.error(e.getMessage());
-//		}
 
 	}
-	
-	
+
+	public String getDaysOfRecordValidity() {
+		return daysOfRecordValidity;
+	}
+
+	public void setDaysOfRecordValidity(String daysOfRecordValidity) {
+		this.daysOfRecordValidity = daysOfRecordValidity;
+	}
 
 }

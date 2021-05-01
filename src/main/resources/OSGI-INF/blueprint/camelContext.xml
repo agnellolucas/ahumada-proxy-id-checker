@@ -9,10 +9,20 @@
         filter="(osgi.jndi.service.name=ventadomiciliods)"
         id="ventadomicilioDataSource" interface="javax.sql.DataSource"/>
     <!-- Beans -->
-    <bean class="com.ahumada.fuse.processor.ProcessRequest" id="processRequest"/>
+    <bean class="com.ahumada.fuse.processor.ProcessRequest" id="processRequest">
+		<property name="daysOfRecordValidity" value="${daysOfRecordValidity}"/>
+	</bean>
     <bean class="com.ahumada.fuse.db.ConnectionManager" id="connectionManager">
         <property name="datasource" ref="ventadomicilioDataSource"/>
     </bean>
+	<bean class="com.ahumada.fuse.external.services.IdCheckerServiceProvider" id="idCheckerServiceProvider">
+		<property name="wsdlURLServiceProvider" value="{{wsdlURLServiceProvider}}"/>
+		<property name="targetNamespaceNameServiceProvider" value="{{targetNamespaceNameServiceProvider}}"/>
+		<property name="serviceNameServiceProvider" value="{{serviceNameServiceProvider}}"/>
+		<property name="addressServiceProvider" value="{{addressServiceProvider}}"/>
+		<property name="usuarioServiceProvider" value="{{usuarioServiceProvider}}"/>
+		<property name="claveServiceProvider" value="{{claveServiceProvider}}"/>
+	</bean>
     <bean class="com.ahumada.fuse.db.DbHelper" id="dbHelper"/>
     <!--CXF Rest Services-->
     <cxf:rsServer address="/id-checker" id="idCheckerServer" loggingFeatureEnabled="true">
@@ -26,6 +36,7 @@
     </cxf:rsServer>
     <!--  Camel routes -->
     <camelContext id="id-checker-api" xmlns="http://camel.apache.org/schema/blueprint">
+        <propertyPlaceholder id="properties" location="file:${karaf.home}/etc/cl.ahumada.idchecker.cfg"/>
         <route id="restApiRoute">
             <from id="_restResources" uri="cxfrs:bean:idCheckerServer"/>
             <camel:unmarshal id="_unmarshal1">

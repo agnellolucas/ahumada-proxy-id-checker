@@ -1,2 +1,0 @@
---Install the below jars on Karaf as a bundle before deploying this bundle
-bundle:install -s wrap:mvn:com.fasterxml.jackson.jr/jackson-jr-objects/2.8.11

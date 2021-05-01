@@ -4,8 +4,9 @@ import com.ahumada.fuse.utils.JSonUtilities;
 
 public class RestResponse {
 
-	public String message;
-	public boolean success;
+	private String message;
+	private boolean success;
+	private String vencimiento;
 
 	public RestResponse(boolean success) {
 		this.success = success;
@@ -24,13 +25,20 @@ public class RestResponse {
 		this.success = success;
 	}
 
-
 	public String getMessage() {
 		return message;
 	}
 	
 	public void setMessage(String message) {
 		this.message = message;
+	}
+
+	public String getVencimiento() {
+		return vencimiento;
+	}
+
+	public void setVencimiento(String vencimiento) {
+		this.vencimiento = vencimiento;
 	}
 
 	public String toString() {
