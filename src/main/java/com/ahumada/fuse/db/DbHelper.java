@@ -97,7 +97,7 @@ public class DbHelper {
 
 			StringBuilder sql = new StringBuilder()
 					.append(" DELETE FROM VENTADOMICILIO_OWN.FV29_CLIENTE_DATOS ")
-					.append(" WHERE DOC_NUMERO = ? , DOC_ESTADO = ? ");
+					.append(" WHERE DOC_NUMERO = ? AND DOC_ESTADO = ? ");
 
 			try {
 				// Set values of mandatory params
@@ -149,7 +149,7 @@ public class DbHelper {
 				}
 
 				// Non Mandatory columns
-				strNullUpsertStatement(sql, sqlInsertValues, "EXISTE", clienteDatos.getIdTransaction(), isDataUpdate);
+				strNullUpsertStatement(sql, sqlInsertValues, "EXISTE", clienteDatos.getExiste(), isDataUpdate);
 				strNullUpsertStatement(sql, sqlInsertValues, "ID_TRANSACTION", clienteDatos.getIdTransaction(), isDataUpdate);
 				strNullUpsertStatement(sql, sqlInsertValues, "DOC_TIPO", clienteDatos.getDocTipo(), isDataUpdate);
 				strNullUpsertStatement(sql, sqlInsertValues, "DOC_ESTADO", clienteDatos.getDocEstado(), isDataUpdate);
@@ -166,7 +166,7 @@ public class DbHelper {
 
 				// End of SQL statement 
 				if(isDataUpdate) {
-					sql.append(" WHERE DOC_NUMERO = ? , DOC_SERIE = ?");
+					sql.append(" WHERE DOC_NUMERO = ? AND DOC_SERIE = ?");
 				} else {
 					// Close sql parts
 					sql.append(" ) ");
@@ -349,11 +349,12 @@ public class DbHelper {
 				.append(", (FECHA_CONSULTA_DATOS + ").append(daysOfRecordValidity).append(" )")
 				.append(" , CURRENT_TIMESTAMP , DOC_ESTADO")
 				.append(" FROM VENTADOMICILIO_OWN.FV29_CLIENTE_DATOS")
-				.append(" WHERE DOC_NUMERO = ? , DOC_SERIE = ? ");
+				.append(" WHERE DOC_NUMERO = ? AND DOC_SERIE = ? ");
 
 				// Set values of mandatory params
 				ps = conn.prepareStatement(sql.toString());
 				ps.setString(1, rut);
+				ps.setString(2, serie);
 
 				rs = ps.executeQuery();
 				if(rs != null && rs.next()){
@@ -400,7 +401,7 @@ public class DbHelper {
 				sql.append(" SELECT ")
 				.append(" (FECHA_CONSULTA_DATOS + ").append(daysOfRecordValidity).append(" )")
 				.append(" FROM VENTADOMICILIO_OWN.FV29_CLIENTE_DATOS")
-				.append(" WHERE DOC_NUMERO = ? , DOC_SERIE = ? ");
+				.append(" WHERE DOC_NUMERO = ? AND DOC_SERIE = ? ");
 
 				// Set values of mandatory params
 				ps = conn.prepareStatement(sql.toString());
@@ -427,6 +428,7 @@ public class DbHelper {
 
 	public static boolean existsFv29ClienteDatos(
 			String rut, 
+			String serie,
 			Connection conn) throws SQLException {
 
 		boolean existsClienteDatos = false;
@@ -441,11 +443,13 @@ public class DbHelper {
 
 				// SQL statement with mandatory parameters
 				sql.append(" SELECT COUNT(1) FROM VENTADOMICILIO_OWN.FV29_CLIENTE_DATOS  ")
-				.append(" WHERE DOC_NUMERO = ? ");
+				.append(" WHERE DOC_NUMERO = ? AND DOC_SERIE = ?");
 
 				// Set values of mandatory params
 				ps = conn.prepareStatement(sql.toString());
 				ps.setString(1, rut);
+				ps.setString(2, serie);
+
 
 				rs = ps.executeQuery();
 				if(rs != null && rs.next()){

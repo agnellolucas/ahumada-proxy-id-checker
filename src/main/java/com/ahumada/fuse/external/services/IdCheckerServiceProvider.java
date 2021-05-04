@@ -113,9 +113,9 @@ public class IdCheckerServiceProvider {
 			GeteIDCompareValidatorResponse response) {
 
 		Fv29ClienteDatos model = null;
-		if(!FunctionUtils.stringIsNullOrEmpty(response.getExiste()) && 
-				response.getStatusDoctoIdentidad() != null &&
-				!FunctionUtils.stringIsNullOrEmpty(response.getStatusDoctoIdentidad().getNumero())) {
+		if(response.getStatusDoctoIdentidad() != null 
+				&& !FunctionUtils.stringIsNullOrEmpty(response.getStatusDoctoIdentidad().getNumero())
+				&& !FunctionUtils.stringIsNullOrEmpty(response.getStatusDoctoIdentidad().getNumero())) {
 
 			// Build root element
 			model = new Fv29ClienteDatos(response.getStatusDoctoIdentidad().getNumero(), response.getStatusDoctoIdentidad().getSerie());

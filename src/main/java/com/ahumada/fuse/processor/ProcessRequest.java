@@ -215,7 +215,7 @@ public class ProcessRequest implements Processor {
 								clienteDatos.getDocNumero(),
 								(existsDocEstado ? clienteDatos.getDocEstado() : "no encontrado")));
 			}
-		} else if(FunctionUtils.stringIsNullOrEmpty(errorMessage)) {
+		} else if(!FunctionUtils.stringIsNullOrEmpty(errorMessage)) {
 			response = new RestResponse(false);
 			response.setMessage(errorMessage);
 		} else {
