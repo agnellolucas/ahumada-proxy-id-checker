@@ -14,8 +14,9 @@ import org.apache.log4j.Logger;
 import com.ahumada.fuse.db.ConnectionManager;
 import com.ahumada.fuse.db.DbHelper;
 import com.ahumada.fuse.db.model.Fv29ClienteDatos;
+import com.ahumada.fuse.enums.DocEstadoEnum;
 import com.ahumada.fuse.enums.MessageListEnum;
-import com.ahumada.fuse.enums.RestResponseStatus;
+import com.ahumada.fuse.exceptions.BusinessHandledException;
 import com.ahumada.fuse.external.services.IdCheckerServiceProvider;
 import com.ahumada.fuse.resources.model.RestRequest;
 import com.ahumada.fuse.resources.model.RestResponse;
@@ -24,6 +25,8 @@ import com.ahumada.fuse.utils.FunctionUtils;
 public class ProcessRequest implements Processor {
 
 	private final int RUT_LENGTH = 10;
+	static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd");
+
 	//	private final int RUT_MIN_LENGTH_WITHOUT_DV = 7;
 	//	private final int SERIE_LENGTH = 10;
 
@@ -54,72 +57,49 @@ public class ProcessRequest implements Processor {
 			// Parse and validate request
 			request = validateRequest(exchange);
 
-			try {
+			// Retrieve database data or call external service
+			boolean callExternalService = true;
 
-				boolean callExternalService = true;
-				boolean isDataUpdate = false;
+			Fv29ClienteDatos clienteDatos = getClienteDatos(request.getRut(), request.getSerie());
+			if(clienteDatos != null && !FunctionUtils.stringIsNullOrEmpty(clienteDatos.getDocEstado()) && clienteDatos.getFechaConsultaDatosValidez() != null) {
+				// If a document has a state BLOQUEADO or NO_EMITIDO it will never be updated again, it will always be invalid
+				if(clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.BLOQUEADO.getEstado()) || clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.NO_EMITIDO.getEstado())) {
+					response = setRestResponse(clienteDatos, null);
+					callExternalService = false;
 
-				// Check if RUT information exists in the database
-				Fv29ClienteDatos clienteDatos = getClienteDatos(request.getRut());
-				if(clienteDatos != null) {
-					// Make sure it is a data update because it already exists on the database
-					isDataUpdate = true;
-
-					// Check difference between the fechaConsultaDatos and FechaConsultaDatosValidez in days 
-					if(clienteDatos.getFechaConsultaDatos() != null 
-							&& clienteDatos.getFechaConsultaDatosValidez() != null
-							&& clienteDatos.getCurrentTimestampDatabase() != null) {
-
-						/*
-						 * It will not call the external service again IF:
-						 * 	- a record already exists in the database AND
-						 *  - the current date is before the database record validity 
-						 *  - the "existe" parameter is equal "S" which means the RUT exists
-						 */
-						if(clienteDatos.getCurrentTimestampDatabase().before(clienteDatos.getFechaConsultaDatosValidez())
-								&& !FunctionUtils.stringIsNullOrEmpty(clienteDatos.getExiste()) 
-								&& (clienteDatos.getExiste() != null && clienteDatos.getExiste().trim().equalsIgnoreCase("S"))) {
-
-							callExternalService = false;
-							response = new RestResponse(true);
-							response.setMessage(String.format("RUT %s encontrado en la base de datos ", clienteDatos.getDocNumero()));
-						}
-					}
-				}
-
-				if(callExternalService) response = callIdCheckerProvider(request, isDataUpdate);
-
-				// Just in case a response is returned null or false and without a message, we consider as an unexpected error
-				if(response == null || (!response.isSuccess() && FunctionUtils.stringIsNullOrEmpty(response.getMessage()))) 
-					throw new Exception(String.format(MessageListEnum.GENERIC_EXCEPTION.getDesc(), "Error inesperado, comuníquese con el equipo de soporte de la aplicación"));
-
-				// Populate validity date
-				if(response != null && response.isSuccess()) {
-					Date validity = DbHelper.getValidityFv29ClienteDatos(request.getRut(), Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
-					if(validity != null) {
-						SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-						response.setVencimiento(formatter.format(validity));
-					} else {
-						response.setVencimiento("1999-12-30");
-					}
-				}
-
-			} catch (Exception e) {
-				// Just log error and re-throw exception
-				logger.error(e.getMessage());
-				throw new Exception(e.getMessage());
-
-			} finally {
-				// Close DB Connection
-				try {
-					if(connManager != null) connManager.closeConnection();
-				} catch (SQLException e) {
-					logger.error(String.format(MessageListEnum.SQLERROR_CLOSE_CONNECTION.getDesc(), e.getMessage()));
-				}
+					// Evaluate existing data to see if record is still valid
+				} else if(clienteDatos.getCurrentTimestampDatabase() != null && clienteDatos.getCurrentTimestampDatabase().before(clienteDatos.getFechaConsultaDatosValidez()) 
+						&& clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.VIGENTE.getEstado())) {
+					response = setRestResponse(clienteDatos, null);
+					callExternalService = false;
+				} 
 			}
 
+			// Call external service again if record wasn't found in the database or is no longer valid
+			if(callExternalService) response = callIdCheckerProvider(request, clienteDatos);
+
+		} catch (BusinessHandledException e) {
+			// Log the business error and the original exception
+			logger.error(new StringBuilder()
+					.append(e.getMessage())
+					.append(" :: ")
+					.append(e.getCause() != null ? e.getCause().getMessage() : "Internal validation exception")
+					.toString());
+			// Build a response with handled error message
+			response = setRestResponse(null, e.getMessage());
+
 		} catch (Exception e) {
-			response = new RestResponse(e.getMessage(),RestResponseStatus.UNEXPECTED_ERROR.isSuccess());
+			logger.error(e.getMessage());
+			// Set unexpected error response
+			response = setRestResponse(null, null);
+
+		} finally {
+			// Close DB Connection
+			try {
+				if(connManager != null) connManager.closeConnection();
+			} catch (SQLException e) {
+				logger.error(String.format(MessageListEnum.SQLERROR_CLOSE_CONNECTION.getDesc(), e.getMessage()));
+			}
 		}
 
 		exchange.getOut().setFault(!response.isSuccess());
@@ -129,15 +109,15 @@ public class ProcessRequest implements Processor {
 	/*
 	 * Validate and parse message to POJO
 	 */
-	public RestRequest validateRequest(Exchange exchange) throws Exception {
+	public RestRequest validateRequest(Exchange exchange) throws BusinessHandledException, Exception {
 
 
 		RestRequest request = null;
 		try {
 			request = exchange.getIn().getBody(RestRequest.class);
-			if(request == null) throw new Exception("No se pudo recuperar el cuerpo del mensaje");
+			if(request == null) throw new BusinessHandledException("No se pudo recuperar el cuerpo del mensaje");
 		} catch (Exception e) {
-			throw new Exception(String.format("Error al analizar JSON :: %s", e.getMessage()));
+			throw new BusinessHandledException(String.format("Error al analizar JSON :: %s", e.getMessage()));
 		}
 
 		// Basic data validation
@@ -180,48 +160,73 @@ public class ProcessRequest implements Processor {
 		}
 
 		// throw exception in case any issue has been found during the validation
-		if(errorMessage != null) throw new Exception(errorMessage.toString());
+		if(errorMessage != null) throw new BusinessHandledException(errorMessage.toString());
 
 		return request;
 	}
 
-	/*
-	 * Check if client data exists on database
-	 */
-	private Fv29ClienteDatos getClienteDatos(String rut) {
-		Fv29ClienteDatos clienteDatos = null;
-
-		try {
-			clienteDatos = DbHelper.getBasicFv29ClienteDatos(rut, Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
-		} catch (SQLException e) {
-			logger.error(String.format("Error al consultar los datos del cliente en la base de datos :: RUT %s", rut));
-		}
-
-		return clienteDatos;
-	}
-
+	
 	/*
 	 * Call ID Checker Provider 
 	 */
-	private RestResponse callIdCheckerProvider(RestRequest req, boolean isDataUpdate) {
+	private RestResponse callIdCheckerProvider(RestRequest req, Fv29ClienteDatos oldClienteDatos) throws BusinessHandledException, Exception {
 
-		RestResponse response;
+		RestResponse response = null;
 
-		try {
-			// Just in case it can't inject the bean
-			if(serviceProvider == null) throw new Exception(" No no pudo iniciar IdCheckerServiceProvider ");
-			// Call ID checker
-			response = serviceProvider.isValidServiceProvider() ? serviceProvider.callIdCheckerProvider(req, isDataUpdate, connManager) : null;
-
-		} catch (Exception e) {
-			response = new RestResponse(false);
-			response.setMessage(String.format(
-					"No se pudo llamar al servicio de validación de identificación externa :: Exception %s", 
-					e.getMessage()));
+		// Just in case it can't inject the bean
+		if(serviceProvider == null) throw new BusinessHandledException("No se pudo crear una instancia del cliente para llamar al servicio de validación de datos externos");
+		// Call ID checker
+		if(serviceProvider.isValidServiceProvider()) {
+			Fv29ClienteDatos newClienteDatos = serviceProvider.callIdCheckerProvider(req, connManager);
+			// Save (update or insert) customer data
+			saveClienteDatos(newClienteDatos, oldClienteDatos);
+			// Obtain the expiration date
+			newClienteDatos.setFechaConsultaDatosValidez(getValidityClienteDatos(newClienteDatos));
+			// Set response
+			response = setRestResponse(newClienteDatos, null);
 		}
+
 		return response;
 
 	}
+	
+	public RestResponse setRestResponse(Fv29ClienteDatos clienteDatos, String errorMessage) {
+
+		RestResponse response = null;
+
+		if(FunctionUtils.stringIsNullOrEmpty(errorMessage) && clienteDatos != null) {
+			boolean existsDocEstado = !FunctionUtils.stringIsNullOrEmpty(clienteDatos.getDocEstado());
+
+			if(existsDocEstado && clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.VIGENTE.getEstado())) {
+				response = new RestResponse(true);
+				response.setMessage(
+						String.format("RUT %s and SERIE %s encontrado en la base de datos :: Estado %s", 
+								clienteDatos.getDocNumero(),
+								clienteDatos.getDocSerie(),
+								clienteDatos.getDocEstado()));
+
+				response.setVencimiento(clienteDatos.getFechaConsultaDatosValidez() != null ? FORMATTER.format(clienteDatos.getFechaConsultaDatosValidez()) : "1999-12-30");
+
+			} else {
+				response = new RestResponse(false);
+				response.setMessage(
+						String.format("Numero de Serie %s no corresponde con el RUT %s :: Estado %s", 
+								clienteDatos.getDocSerie(),
+								clienteDatos.getDocNumero(),
+								(existsDocEstado ? clienteDatos.getDocEstado() : "no encontrado")));
+			}
+		} else if(FunctionUtils.stringIsNullOrEmpty(errorMessage)) {
+			response = new RestResponse(false);
+			response.setMessage(errorMessage);
+		} else {
+			response = new RestResponse(false);
+			response.setMessage(String.format(MessageListEnum.GENERIC_EXCEPTION.getDesc(), "Error inesperado, comuníquese con el equipo de soporte de la aplicación"));
+		}
+
+		return response;
+	}
+
+
 
 	public String getDaysOfRecordValidity() {
 		return daysOfRecordValidity;
@@ -229,6 +234,68 @@ public class ProcessRequest implements Processor {
 
 	public void setDaysOfRecordValidity(String daysOfRecordValidity) {
 		this.daysOfRecordValidity = daysOfRecordValidity;
+	}
+
+	
+	//TODO BEGIN move methods to a new class that provides interface between service and database resources
+	private Fv29ClienteDatos getClienteDatos(String rut, String serie) throws BusinessHandledException, Exception {
+		Fv29ClienteDatos clienteDatos = null;
+
+		try {
+			clienteDatos = DbHelper.getBasicFv29ClienteDatos(rut, serie, Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
+		} catch (SQLException e) {
+			throw new BusinessHandledException(
+					String.format("Error al consultar los datos del cliente en la base de datos :: RUT %s :: SERIE %s ", rut, serie)
+					, e);
+		}
+
+		return clienteDatos;
+	}
+	private boolean saveClienteDatos(Fv29ClienteDatos newClienteDatos, Fv29ClienteDatos oldClienteDatos) throws BusinessHandledException, Exception {
+		// Save response to database
+		if(newClienteDatos != null) {
+			try {
+
+				// Evaluate if previous record exists and if it is valid 
+				boolean existsPreviousRecord = oldClienteDatos != null ;
+				boolean isPreviousValid = existsPreviousRecord && !FunctionUtils.stringIsNullOrEmpty(oldClienteDatos.getDocEstado()) && oldClienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.VIGENTE.getEstado());
+
+				// Delete any valid record with the same RUT and ESTADO = V before inserting a new one
+				boolean isCurrentValid = !FunctionUtils.stringIsNullOrEmpty(newClienteDatos.getDocEstado()) && newClienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.VIGENTE.getEstado());
+				if(isCurrentValid) {
+					DbHelper.deleteFvClienteDatos(newClienteDatos, connManager.getConnection());
+				}
+
+				// If record was deleted then it isn't a data update, in all other cases if previous existed then it is a data update
+				boolean isDataUpdate = isPreviousValid && isCurrentValid 
+						? false 
+								: (existsPreviousRecord ? true : false);
+
+				// call method to update or insert data
+				boolean insertedUpdate = DbHelper.upsertFv29ClienteDatos(newClienteDatos, isDataUpdate, connManager.getConnection());
+
+				if(!insertedUpdate) throw new BusinessHandledException("Actualización o inserción de datos en la base de datos no confirmada");
+
+				return true;
+			} catch (SQLException e) {
+				throw new BusinessHandledException(
+						String.format("Error al guardar los datos del cliente devueltos por Equifax en la base de datos :: RUT %s :: SERIE %s ", newClienteDatos.getDocNumero(), newClienteDatos.getDocSerie())
+						, e);
+			} 
+		}
+		return false;
+	}
+	private Date getValidityClienteDatos(Fv29ClienteDatos clienteDatos) throws BusinessHandledException, Exception {
+		Date validityDate = null;
+		try {
+			validityDate = DbHelper.getValidityFv29ClienteDatos(clienteDatos.getDocNumero(), clienteDatos.getDocSerie(), Integer.parseInt(daysOfRecordValidity), connManager.getConnection());
+			if(validityDate == null) throw new BusinessHandledException("La consulta no devolvió ningún registro");
+		} catch (SQLException e) {
+			throw new BusinessHandledException(
+					String.format("Error al consultar la fecha de caducidad del registro en la base de datos :: RUT %s :: SERIE %s ", clienteDatos.getDocNumero(), clienteDatos.getDocSerie())
+					, e);
+		}
+		return validityDate;
 	}
 
 }

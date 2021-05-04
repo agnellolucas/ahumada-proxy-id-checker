@@ -2,20 +2,17 @@ package com.ahumada.fuse.external.services;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.sql.SQLException;
 
 import javax.xml.namespace.QName;
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.soap.SOAPFaultException;
 
 import org.apache.camel.PropertyInject;
-import org.apache.log4j.Logger;
 
 import com.ahumada.fuse.db.ConnectionManager;
-import com.ahumada.fuse.db.DbHelper;
 import com.ahumada.fuse.db.model.Fv29ClienteDatos;
+import com.ahumada.fuse.exceptions.BusinessHandledException;
 import com.ahumada.fuse.resources.model.RestRequest;
-import com.ahumada.fuse.resources.model.RestResponse;
 import com.ahumada.fuse.utils.FunctionUtils;
 import com.equifax.cl.schema.eidcomparevalidator.geteidcomparevalidatorbreq.GeteIDCompareValidatorRequest;
 import com.equifax.cl.schema.eidcomparevalidator.geteidcomparevalidatorbresp.GeteIDCompareValidatorResponse;
@@ -24,8 +21,6 @@ import cl.equifax.dws.osb_efx.equifax.eidcomparevalidator.EIDCompareValidator;
 import cl.equifax.dws.osb_efx.equifax.eidcomparevalidator.EIDCompareValidator_Service;
 
 public class IdCheckerServiceProvider {
-
-	private Logger logger = Logger.getLogger(getClass());
 
 	@PropertyInject(value = "wsdlURLServiceProvider")
 	private String wsdlURLServiceProvider;
@@ -55,10 +50,9 @@ public class IdCheckerServiceProvider {
 	/*
 	 * Call ID Checker Provider 
 	 */
-	public RestResponse callIdCheckerProvider(RestRequest req, boolean isDataUpdate, ConnectionManager connManager) {
+	public Fv29ClienteDatos callIdCheckerProvider(RestRequest req, ConnectionManager connManager) throws BusinessHandledException, Exception {
 
 		Fv29ClienteDatos clienteDatos = null;
-		RestResponse restResponse;
 		URL wsdlUrl;
 
 		try {
@@ -83,48 +77,33 @@ public class IdCheckerServiceProvider {
 
 			GeteIDCompareValidatorResponse responseSOAP = null;
 			responseSOAP = client.geteIDCompareValidator(requestSOAP);
+			
 			// Evaluate response
-			if(responseSOAP != null && !FunctionUtils.stringIsNullOrEmpty(responseSOAP.getExiste()) && responseSOAP.getExiste().equalsIgnoreCase("S")) {
-				restResponse = new RestResponse(true);
-				restResponse.setMessage(String.format("RUT %s encontrado ", responseSOAP.getStatusDoctoIdentidad().getNumero()));
-
-				// Convert Response to Model
+			if(responseSOAP != null) {
 				clienteDatos = geteIDCompareValidatorResponseToModel(responseSOAP);
-
 			} else {
-				restResponse = new RestResponse(false);
-				restResponse.setMessage(String.format("RUT %s no encontrado ", responseSOAP.getStatusDoctoIdentidad().getNumero()));
+				throw new BusinessHandledException("El proveedor de ID devolvió una respuesta sin datos.");
 			}
 
 		} catch (MalformedURLException e) {
-			restResponse = new RestResponse(false);
-			restResponse.setMessage(e.getMessage());
-			logger.error(e.getMessage());			
+			// throws exception with handled error message
+			throw new BusinessHandledException(String.format("El archivo WSDL no está disponible :: URL %s", getWsdlURLServiceProvider()), e);
 		} catch (Exception e) {
-			restResponse = new RestResponse(false);
 			StringBuilder err = new StringBuilder();
 			if(e instanceof SOAPFaultException) {
 				err.append(String.format("El servicio externo devolvió un error al consultar este RUT. FaultString :: %s . Detail :: %s", 
 						((SOAPFaultException)e).getFault().getFaultString(),
 						((SOAPFaultException)e).getFault().getDetail().getTextContent()));
+				//TODO if necessary to save the fault details the method is ready, just check if we need to delete existing record
+				//DbHelper.upsertFaultFv29ClienteDatos(clienteDatos, isDataUpdate, connManager.getConnection());
 			} else {
 				err.append("Error al llamar a un servicio externo para consultar datos a través de RUT");
-				logger.error(e.getMessage());			
 			}
-			restResponse.setMessage(err.toString());
-			logger.error(e.getMessage());			
+			// throws exception with handled error message
+			throw new BusinessHandledException(err.toString(), e);
 		}
 
-		// Save response to database
-		if(clienteDatos != null) {
-			try {
-				DbHelper.upsertFv29ClienteDatos(clienteDatos, isDataUpdate, connManager.getConnection());
-			} catch (SQLException e) {
-				logger.error(String.format("Error al guardar los datos del cliente devueltos por Equifax en la base de datos :: RUT %s", req.getRut()));
-			}
-		}
-
-		return restResponse;
+		return clienteDatos;
 	}
 
 	/*
@@ -139,7 +118,7 @@ public class IdCheckerServiceProvider {
 				!FunctionUtils.stringIsNullOrEmpty(response.getStatusDoctoIdentidad().getNumero())) {
 
 			// Build root element
-			model = new Fv29ClienteDatos(response.getStatusDoctoIdentidad().getNumero(), response.getExiste());
+			model = new Fv29ClienteDatos(response.getStatusDoctoIdentidad().getNumero(), response.getStatusDoctoIdentidad().getSerie());
 
 			// Root
 			if(!FunctionUtils.stringIsNullOrEmpty(response.getIdTransaction())) 
@@ -195,36 +174,30 @@ public class IdCheckerServiceProvider {
 
 	}
 
-	public boolean isValidServiceProvider() throws Exception{
+	public boolean isValidServiceProvider() throws BusinessHandledException {
 		if(FunctionUtils.stringIsNullOrEmpty(getUsuarioServiceProvider())){
 			String err = "El usuario del proveedor de verificación de RUT no se encuentra en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		if(FunctionUtils.stringIsNullOrEmpty(getClaveServiceProvider())) {
 			String err = "La contraseña del proveedor de verificación de RUT no se encuentra en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		if(FunctionUtils.stringIsNullOrEmpty(getWsdlURLServiceProvider())) {
 			String err = "No se encontró lo parametro wsdlURLServiceProvider en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		if(FunctionUtils.stringIsNullOrEmpty(getTargetNamespaceNameServiceProvider())) {
 			String err = "No se encontró lo parametro targetNamespaceNameServiceProvider en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		if(FunctionUtils.stringIsNullOrEmpty(getServiceNameServiceProvider())) {
 			String err = "No se encontró lo parametro serviceNameServiceProvider en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		if(FunctionUtils.stringIsNullOrEmpty(getAddressServiceProvider())) {
 			String err = "No se encontró lo parametro addressServiceProvider en el archivo de configuración de la aplicación.";
-			logger.error(err);
-			throw new Exception(err);
+			throw new BusinessHandledException(err);
 		}
 		return true;
 	}

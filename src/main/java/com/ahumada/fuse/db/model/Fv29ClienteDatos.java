@@ -13,6 +13,7 @@ public class Fv29ClienteDatos {
 	private String docNumero, docTipo, docSerie, docEstado, docMotivo;
 	private String nombres, apaterno, amaterno, nacionalidad, sexo, ecivil, fnacimiento, fdefuncion, fmatrimonio;
 	private Date fechaConsultaDatos;
+	private String faultString, faultDetail;
 	
 	/*
 	 *  This parameter doesn't exists on database!
@@ -22,13 +23,31 @@ public class Fv29ClienteDatos {
 	private Date currentTimestampDatabase;
 	
 	/**
-	 * Create object at least with mandatory data
+	 * Constructor with mandatory columns
+	 * 
 	 * @param docNumero
+	 * @param docSerie
 	 */
-	public Fv29ClienteDatos(String docNumero, String existe) {
+	public Fv29ClienteDatos(String docNumero, String docSerie) {
 		this.docNumero = docNumero;
-		this.existe = existe;
+		this.docSerie =  docSerie;
 	}
+	
+	/**
+	 * Constructor for fault 
+	 * 
+	 * @param docNumero
+	 * @param docSerie
+	 * @param faultString
+	 * @param faultDetail
+	 */
+	public Fv29ClienteDatos(String docNumero, String docSerie, String faultString, String faultDetail) {
+		this.docNumero = docNumero;
+		this.docSerie = docSerie;
+		this.faultString = faultString;
+		this.faultDetail = faultDetail;
+	}
+	
 	
 	public String getIdTransaction() {
 		return idTransaction;
@@ -147,6 +166,22 @@ public class Fv29ClienteDatos {
 
 	public void setCurrentTimestampDatabase(Date currentTimestampDatabase) {
 		this.currentTimestampDatabase = currentTimestampDatabase;
+	}
+
+	public String getFaultString() {
+		return faultString;
+	}
+
+	public void setFaultString(String faultString) {
+		this.faultString = faultString;
+	}
+
+	public String getFaultDetail() {
+		return faultDetail;
+	}
+
+	public void setFaultDetail(String faultDetail) {
+		this.faultDetail = faultDetail;
 	}
 	
 }
