@@ -103,7 +103,7 @@ public class DbHelper {
 				// Set values of mandatory params
 				ps = conn.prepareStatement(sql.toString());
 				ps.setString(1, clienteDatos.getDocNumero());
-				// Used to delete RUTs with same Estado, to make sure we have only one RUT validy in the database
+				// Used to delete RUTs with same Estado, to make sure we have only one RUT valid in the database
 				ps.setString(2, clienteDatos.getDocEstado()); 
 				if(ps.executeUpdate() > 0) return true;
 				

@@ -62,12 +62,12 @@ public class ProcessRequest implements Processor {
 
 			Fv29ClienteDatos clienteDatos = getClienteDatos(request.getRut(), request.getSerie());
 			if(clienteDatos != null && !FunctionUtils.stringIsNullOrEmpty(clienteDatos.getDocEstado()) && clienteDatos.getFechaConsultaDatosValidez() != null) {
-				// If a document has a state BLOQUEADO or NO_EMITIDO it will never be updated again, it will always be invalid
-				if(clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.BLOQUEADO.getEstado()) || clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.NO_EMITIDO.getEstado())) {
+				// If a document has a state BLOQUEADO it will never be updated again, it will always be invalid
+				if(clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.BLOQUEADO.getEstado())) {
 					response = setRestResponse(clienteDatos, null);
 					callExternalService = false;
 
-					// Evaluate existing data to see if record is still valid
+				// Evaluate existing data to see if record is still valid
 				} else if(clienteDatos.getCurrentTimestampDatabase() != null && clienteDatos.getCurrentTimestampDatabase().before(clienteDatos.getFechaConsultaDatosValidez()) 
 						&& clienteDatos.getDocEstado().trim().equalsIgnoreCase(DocEstadoEnum.VIGENTE.getEstado())) {
 					response = setRestResponse(clienteDatos, null);
@@ -266,10 +266,13 @@ public class ProcessRequest implements Processor {
 					DbHelper.deleteFvClienteDatos(newClienteDatos, connManager.getConnection());
 				}
 
-				// If record was deleted then it isn't a data update, in all other cases if previous existed then it is a data update
-				boolean isDataUpdate = isPreviousValid && isCurrentValid 
-						? false 
-								: (existsPreviousRecord ? true : false);
+				/*
+				 * If previous record is valid and current is valid, then the previous record was deleted 
+				 * In all other cases if previous existed then it's a data update
+				 */
+				boolean isDataUpdate = (isPreviousValid && isCurrentValid)
+							? false 
+							: existsPreviousRecord;
 
 				// call method to update or insert data
 				boolean insertedUpdate = DbHelper.upsertFv29ClienteDatos(newClienteDatos, isDataUpdate, connManager.getConnection());
